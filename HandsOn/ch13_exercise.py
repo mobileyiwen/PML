@@ -1,14 +1,18 @@
-import tensorflow as tf
-import numpy as np
 import time
 
-start_time = 0
+start_time = time.time()
+
+import tensorflow as tf
+import numpy as np
+
 elapsed_time = 0
 
 def reset_graph(seed=42):
     tf.reset_default_graph()
     tf.set_random_seed(seed)
     np.random.seed(seed)
+
+print("Import elapsed time is {:.2f}s".format(time.time()-start_time))
 
 height = 28
 width = 28
@@ -47,19 +51,26 @@ conv1 = tf.layers.conv2d(X_reshaped, filters=conv1_fmaps, kernel_size=conv1_ksiz
 conv2 = tf.layers.conv2d(conv1, filters=conv2_fmaps, kernel_size=conv2_ksize,
                         strides=conv2_stride, padding=conv2_pad,
                         activation=tf.nn.relu, name="conv2")
+
+print("Point 2, Elapsed time is {:.2f}s".format(time.time()-start_time))                       
 with tf.name_scope("pool3"):
     pool3 = tf.nn.max_pool(conv2, ksize=[1,2,2,1], strides=[1,2,2,1], padding="VALID")
     pool3_flat = tf.reshape(pool3, shape=[-1, pool3_fmaps*14*14])
     pool3_flat_drop = tf.layers.dropout(pool3_flat, conv2_dropout_rate, training=training)
 
+print("Point 2.1, Elapsed time is {:.2f}s".format(time.time()-start_time))  
+
 with tf.name_scope("fc1"):
     fc1 = tf.layers.dense(pool3_flat_drop, n_fc1, activation=tf.nn.relu, name="fc1")
     fc1_drop = tf.layers.dropout(fc1, fc1_dropout_rate, training=training)
 
+print("Point 2.2, Elapsed time is {:.2f}s".format(time.time()-start_time))  
 
 with tf.name_scope("output"):
     logits = tf.layers.dense(fc1, n_outputs, name="output")
     Y_proba = tf.nn.softmax(logits, name="Y_proba")
+
+print("Point 2.3, Elapsed time is {:.2f}s".format(time.time()-start_time))  
 
 with tf.name_scope("train"):
     xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=y)
@@ -67,16 +78,24 @@ with tf.name_scope("train"):
     optimizer = tf.train.AdamOptimizer()
     training_op = optimizer.minimize(loss)
 
+print("Point 2.4, Elapsed time is {:.2f}s".format(time.time()-start_time))  
+
 with tf.name_scope("eval"):
     correct = tf.nn.in_top_k(logits, y, 1)
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
+
+print("Point 3, Elapsed time is {:.2f}s".format(time.time()-start_time))  
 
 with tf.name_scope("init_and_save"):
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
 
+print("Point 4, Elapsed time is {:.2f}s".format(time.time()-start_time))  
+
 from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets("/tmp/data/")
+
+print("Point 5, Elapsed time is {:.2f}s".format(time.time()-start_time))  
 
 def get_model_params():
     gvars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -86,7 +105,7 @@ def restore_model_params(model_params):
     gvar_names = list(model_params.keys())
     assign_ops = {gvar_name: tf.get_default_graph().get_operation_by_name(gvar_name+'/Assign')
                     for gvar_name in gvar_names}
-    init_values = {gvar_name: assign_op.inputs[1] for gar_name, assign_op in assign_ops.items()}
+    init_values = {gvar_name: assign_op.inputs[1] for gvar_name, assign_op in assign_ops.items()}
     feed_dict = {init_values[gvar_name]: model_params[gvar_name] for gvar_name in gvar_names}
     tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
 
@@ -96,10 +115,10 @@ batch_size = 50
 best_loss_val = np.infty
 check_interval = 500
 checks_since_last_process = 0
-max_checks_without_progress = 20
+max_checks_without_progress = 2
 best_model_params = None
 
-start_time = time.time()
+print("Will start 1st ePoch, Elapsed time is {:.2f}s".format(time.time()-start_time))
 
 with tf.Session() as sess:
     init.run()
@@ -115,13 +134,13 @@ with tf.Session() as sess:
                     checks_since_last_process = 0
                     best_model_params = get_model_params()
                 else:
-                    checks_since_last_progress += 1
+                    checks_since_last_process += 1
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
         acc_val   = accuracy.eval(feed_dict={X: mnist.validation.images,
                                              y: mnist.validation.labels})
         print("Epoch {}, train accuracy: {:.4f}%, valid. accuracy: {:.4f}%. valid. best loss: {:.6f}".format(
                   epoch, acc_train * 100, acc_val * 100, best_loss_val))
-        print("Elapsed time is {}".format(time.time()-start_time))
+        print("Elapsed time is {:.2f}s".format(time.time()-start_time))
               
         if checks_since_last_process > max_checks_without_progress:
             print("Early stopping!")
@@ -129,7 +148,7 @@ with tf.Session() as sess:
 
     if best_model_params:
         restore_model_params(best_model_params)
-    acc_test = accuracy.eavl(feed_dict={X: mnist.test.images,
+    acc_test = accuracy.eval(feed_dict={X: mnist.test.images,
                                         y: mnist.test.labels})
     print("Final accuracy on test set:", acc_test)
     save_path = saver.save(sess, "./my_mnist_model")
