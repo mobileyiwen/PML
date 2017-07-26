@@ -7,6 +7,9 @@ import os
 FLOWERS_URL = "http://download.tensorflow.org/example_images/flower_photos.tgz"
 FLOWERS_PATH = os.path.join("datasets", "flowers")
 
+INCEPTION_PATH = os.path.join("datasets", "inception")
+INCEPTION_V3_CHECKPOINT_PATH = os.path.join(INCEPTION_PATH, "inception_v3.ckpt")
+
 width = 299
 height = 299
 channels = 3
@@ -230,6 +233,88 @@ with tf.name_scope("init_and_save"):
     saver = tf.train.Saver()
     
 [v.name for v in flower_vars]
+
+flower_class_ids = {flower_class: index for index, flower_class in enumerate(flower_classes)}
+
+flower_paths_and_classes = []
+for flower_class, paths in image_paths.items():
+    for path in paths:
+        flower_paths_and_classes.append((path, flower_class_ids[flower_class]))
+        
+test_ratio = 0.2
+train_size = int(len(flower_paths_and_classes) * (1 - test_ratio))
+
+np.random.shuffle(flower_paths_and_classes)
+
+flower_paths_and_classes_train = flower_paths_and_classes[:train_size]
+flower_paths_and_classes_test  = flower_paths_and_classes[train_size:]
+
+
+from random import sample
+
+def prepare_batch(flower_paths_and_classes, batch_size):
+    batch_paths_and_classes = sample(flower_paths_and_classes, batch_size)
+    images =[mpimg.imread(path)[:, :, :channels] for path, labels in batch_paths_and_classes]
+    prepared_images = [prepare_image(image) for image in images]
+    X_batch = np.stack(prepared_images)
+    y_batch = np.array([labels for path, labels in batch_paths_and_classes], dtype=np.int32)
+    return X_batch, y_batch
+
+X_batch, y_batch = prepare_batch(flower_paths_and_classes_train, batch_size=4)
+
+X_test, y_test = prepare_batch(flower_paths_and_classes_test, batch_size=len(flower_paths_and_classes_test))
+
+
+#start training
+import time
+start_time = time.time()
+print("Point 1 elapsed time is {:.2f}s".format(time.time()-start_time))
+
+n_epochs = 10
+batch_size = 50
+n_iterations_per_epoch = len(flower_paths_and_classes_train)//batch_size
+
+with tf.Session() as sess:
+    init.run()
+    inception_saver.restore(sess, INCEPTION_V3_CHECKPOINT_PATH)
+    print("Point 2 elapsed time is {:.2f}s".format(time.time()-start_time)) 
+    
+    for epoch in range(n_epochs):
+        print("Epoch", epoch, end="")
+        for iteration in range(n_iterations_per_epoch):
+            print(".", end="")
+            X_batch, y_batch = prepare_batch(flower_paths_and_classes_train, batch_size)
+            sess.run(training_op, feed_dict={X:X_batch, y:y_batch, training: True})
+
+        acc_train = accuracy.eval(feed_dict={X:X_batch, y:y_batch})
+        print("   Train accuracy:", acc_train)
+        print("Point 3 elapsed time is {:.2f}s".format(time.time()-start_time))       
+        
+        
+        save_path = saver.save(sess, "./my_flowers_model")
+    
+    print("computing final accuracy on the test set (this will take a while)...")
+    acc_test = accuracy.eval(feed_dict={X:X_test, y:y_test})
+    print("Test accuracy:", acc_test)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
      
     
