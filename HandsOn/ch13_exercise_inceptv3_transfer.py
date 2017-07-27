@@ -296,7 +296,7 @@ with tf.Session() as sess:
     print("computing final accuracy on the test set (this will take a while)...")
     acc_test = accuracy.eval(feed_dict={X:X_test, y:y_test})
     print("Test accuracy:", acc_test)
-
+    print("Point 4 elapsed time is {:.2f}s".format(time.time()-start_time))   
 
 
 
